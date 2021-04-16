@@ -40,14 +40,16 @@ namespace priscas
 			}
 			else if(st == MIF)
 			{
-				int bc_c = count * 8;
-				max_inst_size = bc_c < max_inst_size ? max_inst_size : bc_c;
 				mif_insts.push_back(ninst);
 			}
 		}
+
+		total_bytes += count;
 	}
 
-	asm_ostream::asm_ostream(const char * filename, STREAM_TYPE stin) : max_inst_size(0)
+	asm_ostream::asm_ostream(const char * filename, STREAM_TYPE stin) :
+		width(4),
+		total_bytes(0)
 	{
 		this->f = fopen(filename, "w");
 		if(f == NULL)
@@ -65,17 +67,63 @@ namespace priscas
 		{
 			// If we are writing a mif file, serialize at this point
 			fprintf(this->f, "-- CLASS generated .mif file\n");
-			fprintf(this->f, "WIDTH=%d;\n", max_inst_size);
-			fprintf(this->f, "DEPTH=%d;\n", mif_insts.size());
+			fprintf(this->f, "WIDTH=%d;\n", width * 8);
+			fprintf(this->f, "DEPTH=%d;\n", (total_bytes / width) + (total_bytes % width != 0 ? 1 : 0)); // In the case of uneven alignment, round up
 			fprintf(this->f, "\n\n");
 
 			// Write Radix Information
 			fprintf(this->f, "ADDRESS_RADIX=UNS;\nDATA_RADIX=HEX;\n\n\n");
 			fprintf(this->f, "CONTENT BEGIN\n");
 
-			for(uint64_t addr = 0; addr < mif_insts.size(); ++addr)
+			unsigned addr = 0;
+			unsigned bcount = 0;
+			UPString next_line;
+			for(uint64_t word_ind = 0; word_ind < mif_insts.size(); ++word_ind)
 			{
-				fprintf(this->f, "\t%lld: %s;\n", addr, mif_insts[addr].c_str());
+				UPString& curr_inst = mif_insts[word_ind];
+
+				while(!curr_inst.empty())
+				{
+					if(curr_inst.size() % 2 != 0)
+					{
+						// Throw an exception here
+					}
+
+					// Get the next byte
+					UPString hb_lower;
+					hb_lower += curr_inst.back();
+					curr_inst.pop_back();
+					UPString hb_upper;
+					hb_upper += curr_inst.back();
+					curr_inst.pop_back();
+
+					UPString fbyte = hb_upper + hb_lower;
+
+					next_line = fbyte + next_line;
+
+					++bcount;
+					
+					if(bcount >= width)
+					{
+						fprintf(this->f, "\t%lld: %s;\n", addr++, next_line.c_str());
+						// Flush current buffers.
+						next_line.clear();
+						bcount = 0;
+					}
+				}
+			}
+
+			// If next line is still here, that means we have an unaligned line
+			// Nevertheless, we should support this by zero filling
+			if(!next_line.empty())
+			{
+					while(bcount < width)
+					{
+						next_line = UPString("00") + next_line;
+						++bcount;
+					}
+
+					fprintf(this->f, "\t%lld: %s;\n", addr++, next_line.c_str());
 			}
 
 			fprintf(this->f, "END;\n");
