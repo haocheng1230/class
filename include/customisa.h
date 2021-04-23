@@ -117,6 +117,7 @@ namespace priscas
         FUN = 20,
         RET = 21,
         INTR = 22,
+        NOP = 25,
         HALT = 31,
 		// LB = 32,
 		// LH = 33,

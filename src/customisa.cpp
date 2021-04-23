@@ -85,7 +85,6 @@ namespace priscas
         return 
             operation == NOT ? true :
             operation == MOV ? true :
-            operation == FUN ? true :
             false;
     }
 
@@ -95,6 +94,7 @@ namespace priscas
             operation == JMP ? true :
             operation == PUSH ? true :
             operation == POP ? true :
+            operation == FUN ? true :
             false;
     }
 
@@ -135,7 +135,7 @@ namespace priscas
 		if(args.size() < 1)
 			return std::shared_ptr<BW>(new BW_32());
         
-        printf("starting");
+        // printf("starting");
 
 		priscas::opcode current_op = priscas::SYS_RES;
 		// priscas::funct f_code = priscas::NONE;
@@ -167,7 +167,8 @@ namespace priscas
 		else if("jmp" == args[0]) { current_op = priscas::JMP; }
 		else if("fun" == args[0]) { current_op = priscas::FUN;}
 		else if("ret" == args[0]) { current_op = priscas::RET;}
-		else if("intr" == args[0]) { current_op = priscas::INTR;}	
+		else if("intr" == args[0]) { current_op = priscas::INTR;}
+        else if("nop" == args[0]) { current_op = priscas::NOP;}		
 		else if("halt" == args[0]) { current_op = priscas::HALT;}
 		else
 		{
@@ -175,7 +176,7 @@ namespace priscas
 		}
 
 		// Check for insufficient arguments
-		if(args.size() >= 1)
+		if(args.size() > 1)
 		{
 			if	(
 					(inst_1operands(current_op) && args.size() != 1) ||
@@ -190,7 +191,7 @@ namespace priscas
                 throw priscas::mt_asm_bad_arg_count();
             }
 			// Now first argument parsing
-            if (current_op == JMP) {
+            if (current_op == JMP || current_op == FUN) {
                 if(jump_syms.has(args[1]))
 				{
                     priscas::BW_32 addr = baseAddress.AsUInt32();
@@ -208,7 +209,7 @@ namespace priscas
 				priscas::mt_bad_mnemonic();
 			} 
 		}
-        printf("%s", "first done");
+        // printf("%s", "first done");
 		// Second Argument Parsing
 		
 		if(args.size() > 2)
@@ -223,10 +224,11 @@ namespace priscas
 				{
 					imm = priscas::get_imm(args[2].c_str());
 				}
+                if (current_op == FUN) rx = priscas::$lr;
             }
             else ry = priscas::get_reg_num(args[2].c_str());
 		}
-        printf("%s", "second done");
+        // printf("%s", "second done");
 
 		if(args.size() > 3)
 		{
@@ -244,7 +246,7 @@ namespace priscas
                 imm = priscas::get_imm(args[3].c_str());
             }
 		}
-        printf("%s", "third done");
+        // printf("%s", "third done");
 
 		// Pass the values of rs, rt, rd to the processor's encoding function
 		BW_32 inst = generic_customisa_encode(rx, ry, rz, imm, current_op);
